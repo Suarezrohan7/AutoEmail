@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Scheduler</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --surface3: #1e2d45;
+    --border: #1e3a5f;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --green: #10b981;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --purple: #8b5cf6;
+    --cyan: #06b6d4;
+    --text: #f1f5f9;
+    --text2: #94a3b8;
+    --text3: #64748b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .header-left { display: flex; align-items: center; gap: .9rem; }
+  .header-icon { font-size: 1.6rem; }
+  .header-title { font-size: 1.25rem; font-weight: 800; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .header-sub { font-size: .75rem; color: var(--text3); margin-top: .1rem; }
+  .setup-btn {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    border: none; border-radius: 8px; padding: .45rem 1rem;
+    color: #fff; font-size: .8rem; font-weight: 600; cursor: pointer; transition: opacity .2s;
+  }
+  .setup-btn:hover { opacity: .85; }
+
+  /* ── LAYOUT ── */
+  .main { display: grid; grid-template-columns: 420px 1fr; gap: 1.5rem; padding: 1.5rem 2rem 3rem; max-width: 1400px; margin: 0 auto; }
+
+  /* ── CARD ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .card-header { padding: 1.1rem 1.4rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  .card-title { font-size: .85rem; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--text2); }
+  .card-body { padding: 1.4rem; }
+
+  /* ── FORM ── */
+  .form-row { margin-bottom: 1rem; }
+  .form-row:last-child { margin-bottom: 0; }
+  .form-label { display: block; font-size: .78rem; font-weight: 600; color: var(--text2); margin-bottom: .4rem; letter-spacing: .3px; }
+  .form-label span { color: var(--red); margin-left: 2px; }
+  .form-input, .form-select, .form-textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: .6rem .9rem; color: var(--text); font-size: .875rem;
+    outline: none; transition: border-color .2s, box-shadow .2s; font-family: inherit;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+  }
+  .form-input::placeholder, .form-textarea::placeholder { color: var(--text3); }
+  .form-select { cursor: pointer; }
+  .form-select option { background: var(--surface2); }
+  .form-textarea { resize: vertical; min-height: 110px; line-height: 1.6; }
+
+  /* Recipients */
+  .recipients-list { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .5rem; }
+  .recipient-row { display: flex; gap: .5rem; align-items: center; }
+  .recipient-row .form-input { flex: 1; }
+  .remove-recipient {
+    width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text3); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 1rem;
+    transition: all .2s; flex-shrink: 0;
+  }
+  .remove-recipient:hover { border-color: var(--red); color: var(--red); background: rgba(239,68,68,.1); }
+  .add-recipient-btn {
+    background: none; border: 1px dashed var(--border); border-radius: 8px;
+    color: var(--accent); font-size: .8rem; padding: .45rem .8rem; cursor: pointer;
+    transition: all .2s; display: flex; align-items: center; gap: .4rem; width: 100%;
+    justify-content: center;
+  }
+  .add-recipient-btn:hover { border-color: var(--accent); background: rgba(59,130,246,.06); }
+
+  /* Date-time row */
+  .datetime-row { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+
+  /* Submit */
+  .submit-btn {
+    width: 100%; background: linear-gradient(135deg, #3b82f6, #6366f1);
+    border: none; border-radius: 10px; padding: .85rem;
+    color: #fff; font-size: .95rem; font-weight: 700; cursor: pointer;
+    transition: all .3s; letter-spacing: .3px; margin-top: .5rem;
+  }
+  .submit-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,.4); }
+  .submit-btn:active { transform: translateY(0); }
+
+  /* ── SCHEDULED LIST ── */
+  .list-toolbar { display: flex; align-items: center; justify-content: space-between; }
+  .list-count { font-size: .78rem; color: var(--text3); }
+  .filter-tabs { display: flex; gap: .3rem; }
+  .filter-tab {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: .25rem .65rem; font-size: .75rem; color: var(--text3); cursor: pointer; transition: all .2s;
+  }
+  .filter-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .filter-tab:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+
+  .scheduled-list { display: flex; flex-direction: column; gap: .75rem; margin-top: 1rem; }
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text3); }
+  .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: .75rem; opacity: .5; }
+  .empty-state p { font-size: .875rem; }
+
+  .email-card {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1rem 1.1rem; transition: border-color .2s;
+  }
+  .email-card:hover { border-color: var(--accent); }
+  .email-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; margin-bottom: .6rem; }
+  .email-subject { font-size: .9rem; font-weight: 600; color: var(--text); }
+  .email-meta { font-size: .78rem; color: var(--text3); margin-top: .2rem; }
+  .email-meta strong { color: var(--text2); }
+  .email-card-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--border); }
+  .email-timing { font-size: .78rem; color: var(--text3); }
+  .email-timing strong { color: var(--cyan); }
+  .email-actions { display: flex; gap: .4rem; align-items: center; }
+
+  /* Badges */
+  .badge { font-size: .68rem; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; padding: .2rem .55rem; border-radius: 20px; flex-shrink: 0; }
+  .badge-scheduled { background: rgba(59,130,246,.15); color: var(--accent); }
+  .badge-sent      { background: rgba(16,185,129,.15); color: var(--green); }
+  .badge-failed    { background: rgba(239,68,68,.15);  color: var(--red); }
+  .badge-paused    { background: rgba(245,158,11,.15); color: var(--yellow); }
+
+  /* Action buttons */
+  .action-btn {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    padding: .3rem .65rem; font-size: .75rem; color: var(--text2); cursor: pointer; transition: all .2s;
+  }
+  .action-btn:hover { color: var(--text); border-color: var(--text2); }
+  .action-btn.danger:hover { border-color: var(--red); color: var(--red); background: rgba(239,68,68,.08); }
+  .action-btn.success:hover { border-color: var(--green); color: var(--green); background: rgba(16,185,129,.08); }
+
+  /* ── TOAST ── */
+  #toast-container { position: fixed; top: 1.2rem; right: 1.2rem; z-index: 1000; display: flex; flex-direction: column; gap: .5rem; pointer-events: none; }
+  .toast {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: .75rem 1.1rem; font-size: .85rem; color: var(--text);
+    display: flex; align-items: center; gap: .6rem; min-width: 280px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.4);
+    animation: slideIn .3s ease; pointer-events: all;
+  }
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.error   { border-left: 3px solid var(--red); }
+  .toast.info    { border-left: 3px solid var(--accent); }
+  .toast-icon { font-size: 1.1rem; flex-shrink: 0; }
+  .toast-text { flex: 1; line-height: 1.4; }
+  .toast.hiding { animation: slideOut .3s ease forwards; }
+  @keyframes slideIn  { from { opacity:0; transform:translateX(30px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes slideOut { from { opacity:1; transform:translateX(0); }   to { opacity:0; transform:translateX(30px); } }
+
+  /* ── SETUP MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(10,14,26,.85); z-index: 200;
+    display: none; align-items: center; justify-content: center; padding: 1rem;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+  }
+  .modal-header { padding: 1.3rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 1rem; font-weight: 700; }
+  .modal-close { background: none; border: none; color: var(--text3); font-size: 1.3rem; cursor: pointer; transition: color .2s; }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 1.5rem; }
+  .setup-step { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+  .step-num { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #6366f1); display: flex; align-items: center; justify-content: center; font-size: .8rem; font-weight: 800; flex-shrink: 0; margin-top: .1rem; }
+  .step-content h4 { font-size: .9rem; font-weight: 600; margin-bottom: .3rem; }
+  .step-content p { font-size: .82rem; color: var(--text2); line-height: 1.6; }
+  .step-content a { color: var(--accent); text-decoration: none; }
+  .step-content a:hover { text-decoration: underline; }
+  .config-fields { display: flex; flex-direction: column; gap: .75rem; margin-top: 1.2rem; }
+  .save-config-btn {
+    width: 100%; background: linear-gradient(135deg, #3b82f6, #6366f1);
+    border: none; border-radius: 10px; padding: .75rem;
+    color: #fff; font-size: .875rem; font-weight: 700; cursor: pointer; transition: opacity .2s; margin-top: 1rem;
+  }
+  .save-config-btn:hover { opacity: .85; }
+  .config-status { font-size: .78rem; text-align: center; margin-top: .6rem; min-height: 1em; }
+  .config-status.ok { color: var(--green); }
+  .config-status.err { color: var(--red); }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 1.2rem 0; }
+
+  /* ── TICKER ── */
+  .ticker { display: flex; align-items: center; gap: .5rem; font-size: .75rem; color: var(--text3); }
+  .ticker-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+  @media(max-width:900px) {
+    .main { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<!-- Setup Modal -->
+<div class="modal-overlay" id="setup-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ EmailJS Setup</div>
+      <button class="modal-close" onclick="closeSetup()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.85rem;color:var(--text2);margin-bottom:1.2rem;line-height:1.7;">
+        EmailJS lets you send emails directly from the browser — no backend needed. Follow the steps below to connect your free account.
+      </p>
+
+      <div class="setup-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Create a free EmailJS account</h4>
+          <p>Go to <a href="https://www.emailjs.com" target="_blank">emailjs.com</a> and sign up for free. The free tier allows 200 emails/month.</p>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Add an Email Service</h4>
+          <p>In your EmailJS dashboard → <strong>Email Services</strong> → connect Gmail, Outlook, or any SMTP provider. Copy the <strong>Service ID</strong>.</p>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Create an Email Template</h4>
+          <p>Go to <strong>Email Templates</strong> → Create New. Use these variables in your template:<br><br>
+          <code style="background:var(--surface2);padding:.2rem .4rem;border-radius:4px;font-size:.8rem;">
+            To: {{to_email}}<br>
+            Subject: {{subject}}<br>
+            Body: {{message}}
+          </code>
+          <br><br>Copy the <strong>Template ID</strong>.</p>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h4>Get your Public Key</h4>
+          <p>Go to <strong>Account</strong> → <strong>General</strong> → copy your <strong>Public Key</strong>.</p>
+        </div>
+      </div>
+
+      <hr class="divider">
+      <h4 style="font-size:.85rem;font-weight:700;margin-bottom:.9rem;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;">Enter Your Credentials</h4>
+
+      <div class="config-fields">
+        <div class="form-row" style="margin:0">
+          <label class="form-label">Public Key</label>
+          <input class="form-input" id="cfg-pubkey" placeholder="e.g. user_xxxxxxxxxxxxxx">
+        </div>
+        <div class="form-row" style="margin:0">
+          <label class="form-label">Service ID</label>
+          <input class="form-input" id="cfg-service" placeholder="e.g. service_xxxxxxx">
+        </div>
+        <div class="form-row" style="margin:0">
+          <label class="form-label">Template ID</label>
+          <input class="form-input" id="cfg-template" placeholder="e.g. template_xxxxxxx">
+        </div>
+      </div>
+      <button class="save-config-btn" onclick="saveConfig()">Save Configuration</button>
+      <div class="config-status" id="config-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-icon">✉️</div>
+    <div>
+      <div class="header-title">Email Scheduler</div>
+      <div class="header-sub">Compose, schedule, and automate your emails</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <div class="ticker">
+      <div class="ticker-dot"></div>
+      <span id="ticker-label">Checking every minute</span>
+    </div>
+    <button class="setup-btn" onclick="openSetup()">⚙️ EmailJS Setup</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- LEFT: Compose Form -->
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <span>📝</span>
+        <span class="card-title">Compose Email</span>
+      </div>
+      <div class="card-body">
+
+        <!-- Recipients -->
+        <div class="form-row">
+          <label class="form-label">To <span>*</span></label>
+          <div class="recipients-list" id="recipients-list">
+            <div class="recipient-row">
+              <input class="form-input" type="email" placeholder="recipient@email.com" required>
+            </div>
+          </div>
+          <button class="add-recipient-btn" type="button" onclick="addRecipient()">
+            + Add another recipient
+          </button>
+        </div>
+
+        <!-- Subject -->
+        <div class="form-row">
+          <label class="form-label">Subject <span>*</span></label>
+          <input class="form-input" id="subject" type="text" placeholder="Enter email subject…">
+        </div>
+
+        <!-- Message -->
+        <div class="form-row">
+          <label class="form-label">Message <span>*</span></label>
+          <textarea class="form-textarea" id="message" placeholder="Write your email message here…"></textarea>
+        </div>
+
+        <!-- Schedule -->
+        <div class="form-row">
+          <label class="form-label">Schedule Date & Time <span>*</span></label>
+          <div class="datetime-row">
+            <input class="form-input" id="sched-date" type="date">
+            <input class="form-input" id="sched-time" type="time">
+          </div>
+        </div>
+
+        <!-- Frequency -->
+        <div class="form-row">
+          <label class="form-label">Frequency</label>
+          <select class="form-select" id="frequency">
+            <option value="once">Once — send one time only</option>
+            <option value="daily">Daily — repeat every day</option>
+            <option value="weekly">Weekly — repeat every 7 days</option>
+            <option value="monthly">Monthly — repeat same date each month</option>
+          </select>
+        </div>
+
+        <button class="submit-btn" onclick="scheduleEmail()">⚡ Schedule Email</button>
+      </div>
+    </div>
+
+    <!-- Config Warning -->
+    <div id="config-warning" style="display:none;margin-top:.75rem;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:.9rem 1rem;font-size:.82rem;color:var(--yellow);line-height:1.6;">
+      ⚠️ <strong>EmailJS not configured.</strong> Emails will be saved but not sent until you click <strong>EmailJS Setup</strong> above and enter your credentials.
+    </div>
+  </div>
+
+  <!-- RIGHT: Scheduled List -->
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <span>📅</span>
+        <div class="list-toolbar" style="flex:1">
+          <span class="card-title">Scheduled Emails <span id="list-count" style="color:var(--text3);font-weight:400;text-transform:none;font-size:.78rem;"></span></span>
+          <div class="filter-tabs">
+            <button class="filter-tab active" data-filter="all" onclick="setFilter('all',this)">All</button>
+            <button class="filter-tab" data-filter="scheduled" onclick="setFilter('scheduled',this)">Scheduled</button>
+            <button class="filter-tab" data-filter="sent" onclick="setFilter('sent',this)">Sent</button>
+            <button class="filter-tab" data-filter="failed" onclick="setFilter('failed',this)">Failed</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-body" style="padding-top:.75rem;">
+        <div class="scheduled-list" id="scheduled-list"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let emails    = JSON.parse(localStorage.getItem('scheduledEmails') || '[]');
+let config    = JSON.parse(localStorage.getItem('emailjsConfig')   || '{}');
+let activeFilter = 'all';
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+(function init(){
+  setDefaultDateTime();
+  renderList();
+  checkConfigWarning();
+  if(config.publicKey) {
+    emailjs.init(config.publicKey);
+  }
+  // Check every 60 seconds
+  setInterval(checkAndSend, 60 * 1000);
+  // Also check immediately on load
+  checkAndSend();
+})();
+
+function setDefaultDateTime(){
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + 60); // default: 1 hour from now
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('sched-date').value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  document.getElementById('sched-time').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+// ═══════════════════════════════════════════════════
+//  RECIPIENTS
+// ═══════════════════════════════════════════════════
+function addRecipient(){
+  const list = document.getElementById('recipients-list');
+  const row  = document.createElement('div');
+  row.className = 'recipient-row';
+  row.innerHTML = `
+    <input class="form-input" type="email" placeholder="another@email.com">
+    <button class="remove-recipient" onclick="removeRecipient(this)" title="Remove">✕</button>`;
+  list.appendChild(row);
+  row.querySelector('input').focus();
+}
+
+function removeRecipient(btn){
+  btn.closest('.recipient-row').remove();
+}
+
+function getRecipients(){
+  return [...document.querySelectorAll('#recipients-list input')]
+    .map(i => i.value.trim())
+    .filter(Boolean);
+}
+
+// ═══════════════════════════════════════════════════
+//  SCHEDULE EMAIL
+// ═══════════════════════════════════════════════════
+function scheduleEmail(){
+  const recipients = getRecipients();
+  const subject    = document.getElementById('subject').value.trim();
+  const message    = document.getElementById('message').value.trim();
+  const date       = document.getElementById('sched-date').value;
+  const time       = document.getElementById('sched-time').value;
+  const frequency  = document.getElementById('frequency').value;
+
+  // Validate
+  if(!recipients.length)    { toast('error','Add at least one recipient.'); return; }
+  if(!validateEmails(recipients)) { toast('error','One or more email addresses are invalid.'); return; }
+  if(!subject)              { toast('error','Subject is required.'); return; }
+  if(!message)              { toast('error','Message body is required.'); return; }
+  if(!date || !time)        { toast('error','Please select a date and time.'); return; }
+
+  const scheduledAt = new Date(`${date}T${time}`);
+  if(scheduledAt <= new Date()) { toast('error','Scheduled time must be in the future.'); return; }
+
+  const entry = {
+    id:          Date.now(),
+    recipients,
+    subject,
+    message,
+    scheduledAt: scheduledAt.toISOString(),
+    nextSendAt:  scheduledAt.toISOString(),
+    frequency,
+    status:      'scheduled',
+    createdAt:   new Date().toISOString(),
+    sentAt:      null,
+    sendCount:   0
+  };
+
+  emails.unshift(entry);
+  save();
+  renderList();
+  resetForm();
+  toast('success', `Email scheduled for ${formatDateTime(scheduledAt)}${frequency !== 'once' ? ` · repeats ${frequency}` : ''}`);
+}
+
+function validateEmails(arr){
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return arr.every(e => re.test(e));
+}
+
+function resetForm(){
+  document.querySelectorAll('#recipients-list .recipient-row').forEach((row, i) => {
+    if(i === 0) row.querySelector('input').value = '';
+    else row.remove();
+  });
+  document.getElementById('subject').value  = '';
+  document.getElementById('message').value  = '';
+  document.getElementById('frequency').value = 'once';
+  setDefaultDateTime();
+}
+
+// ═══════════════════════════════════════════════════
+//  CHECK & SEND
+// ═══════════════════════════════════════════════════
+async function checkAndSend(){
+  const now = new Date();
+  let changed = false;
+
+  for(const email of emails){
+    if(email.status !== 'scheduled') continue;
+    const nextSend = new Date(email.nextSendAt);
+    if(nextSend > now) continue;
+
+    // Time to send!
+    changed = true;
+    const success = await sendEmail(email);
+
+    if(success){
+      email.sendCount++;
+      email.sentAt = new Date().toISOString();
+      if(email.frequency === 'once'){
+        email.status = 'sent';
+      } else {
+        // Calculate next send time
+        const next = new Date(nextSend);
+        if(email.frequency === 'daily')   next.setDate(next.getDate() + 1);
+        if(email.frequency === 'weekly')  next.setDate(next.getDate() + 7);
+        if(email.frequency === 'monthly') next.setMonth(next.getMonth() + 1);
+        email.nextSendAt = next.toISOString();
+        toast('success', `Sent to ${email.recipients[0]}${email.recipients.length > 1 ? ` +${email.recipients.length-1} more` : ''} · Next: ${formatDateTime(next)}`);
+      }
+    } else {
+      email.status = 'failed';
+      toast('error', `Failed to send "${email.subject}" — check EmailJS config.`);
+    }
+  }
+
+  if(changed){ save(); renderList(); }
+
+  // Update ticker
+  document.getElementById('ticker-label').textContent = `Last checked ${formatTime(new Date())}`;
+}
+
+async function sendEmail(entry){
+  if(!config.publicKey || !config.serviceId || !config.templateId){
+    return false; // Not configured
+  }
+
+  try {
+    // Send to each recipient
+    for(const to of entry.recipients){
+      await emailjs.send(config.serviceId, config.templateId, {
+        to_email: to,
+        subject:  entry.subject,
+        message:  entry.message
+      });
+    }
+    return true;
+  } catch(err){
+    console.error('EmailJS error:', err);
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER LIST
+// ═══════════════════════════════════════════════════
+function setFilter(f, el){
+  activeFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderList();
+}
+
+function renderList(){
+  const list = document.getElementById('scheduled-list');
+  const countEl = document.getElementById('list-count');
+
+  let filtered = emails;
+  if(activeFilter !== 'all') filtered = emails.filter(e => e.status === activeFilter);
+
+  countEl.textContent = `(${filtered.length})`;
+
+  if(!filtered.length){
+    const labels = { all:'No emails scheduled yet.', scheduled:'No scheduled emails.', sent:'No sent emails yet.', failed:'No failed emails.' };
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>${labels[activeFilter]}</p></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(e => emailCard(e)).join('');
+}
+
+function emailCard(e){
+  const badgeClass = { scheduled:'badge-scheduled', sent:'badge-sent', failed:'badge-failed', paused:'badge-paused' }[e.status] || 'badge-scheduled';
+  const badgeText  = e.status.charAt(0).toUpperCase() + e.status.slice(1);
+  const recipientDisplay = e.recipients.length === 1
+    ? e.recipients[0]
+    : `${e.recipients[0]} <span style="color:var(--accent)">+${e.recipients.length-1} more</span>`;
+
+  const freqLabel = { once:'One-time', daily:'Daily', weekly:'Weekly', monthly:'Monthly' }[e.frequency];
+  const nextSend  = e.status === 'scheduled' ? `<strong>${formatDateTime(new Date(e.nextSendAt))}</strong>` : (e.sentAt ? `Sent ${formatDateTime(new Date(e.sentAt))}` : '—');
+  const sendInfo  = e.sendCount > 0 ? ` · Sent ${e.sendCount}×` : '';
+
+  const actions = e.status === 'scheduled'
+    ? `<button class="action-btn danger" onclick="deleteEmail(${e.id})">🗑 Cancel</button>`
+    : `<button class="action-btn" onclick="deleteEmail(${e.id})">🗑 Remove</button>`;
+
+  const retryBtn = e.status === 'failed'
+    ? `<button class="action-btn success" onclick="retryEmail(${e.id})">↺ Retry</button>` : '';
+
+  return `
+    <div class="email-card" id="card-${e.id}">
+      <div class="email-card-top">
+        <div>
+          <div class="email-subject">${escHtml(e.subject)}</div>
+          <div class="email-meta">To: ${recipientDisplay}</div>
+        </div>
+        <span class="badge ${badgeClass}">${badgeText}</span>
+      </div>
+      <div style="font-size:.78rem;color:var(--text3);margin-top:.3rem;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
+        ${escHtml(e.message)}
+      </div>
+      <div class="email-card-bottom">
+        <div class="email-timing">
+          📅 ${nextSend} &nbsp;·&nbsp; 🔁 ${freqLabel}${sendInfo}
+        </div>
+        <div class="email-actions">${retryBtn}${actions}</div>
+      </div>
+    </div>`;
+}
+
+function deleteEmail(id){
+  emails = emails.filter(e => e.id !== id);
+  save();
+  renderList();
+  toast('info', 'Email removed from schedule.');
+}
+
+function retryEmail(id){
+  const e = emails.find(e => e.id === id);
+  if(!e) return;
+  e.status = 'scheduled';
+  e.nextSendAt = new Date(Date.now() + 60000).toISOString(); // retry in 1 min
+  save();
+  renderList();
+  toast('info', 'Email queued for retry in ~1 minute.');
+}
+
+// ═══════════════════════════════════════════════════
+//  EMAILJS CONFIG
+// ═══════════════════════════════════════════════════
+function openSetup(){
+  document.getElementById('cfg-pubkey').value   = config.publicKey   || '';
+  document.getElementById('cfg-service').value  = config.serviceId   || '';
+  document.getElementById('cfg-template').value = config.templateId  || '';
+  document.getElementById('config-status').textContent = '';
+  document.getElementById('setup-modal').classList.add('open');
+}
+
+function closeSetup(){
+  document.getElementById('setup-modal').classList.remove('open');
+}
+
+function saveConfig(){
+  const pubkey   = document.getElementById('cfg-pubkey').value.trim();
+  const service  = document.getElementById('cfg-service').value.trim();
+  const template = document.getElementById('cfg-template').value.trim();
+  const statusEl = document.getElementById('config-status');
+
+  if(!pubkey || !service || !template){
+    statusEl.className = 'config-status err';
+    statusEl.textContent = 'All three fields are required.';
+    return;
+  }
+
+  config = { publicKey: pubkey, serviceId: service, templateId: template };
+  localStorage.setItem('emailjsConfig', JSON.stringify(config));
+  emailjs.init(pubkey);
+
+  statusEl.className = 'config-status ok';
+  statusEl.textContent = '✓ Configuration saved successfully!';
+  checkConfigWarning();
+  setTimeout(closeSetup, 1200);
+  toast('success', 'EmailJS configured — ready to send!');
+}
+
+function checkConfigWarning(){
+  const warn = document.getElementById('config-warning');
+  warn.style.display = (config.publicKey && config.serviceId && config.templateId) ? 'none' : 'block';
+}
+
+// ═══════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════
+function toast(type, message){
+  const icons = { success:'✅', error:'❌', info:'ℹ️' };
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span class="toast-icon">${icons[type]||'💬'}</span><span class="toast-text">${message}</span>`;
+  container.appendChild(el);
+  setTimeout(()=>{
+    el.classList.add('hiding');
+    setTimeout(()=>el.remove(), 300);
+  }, 3500);
+}
+
+// ═══════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════
+function save(){
+  localStorage.setItem('scheduledEmails', JSON.stringify(emails));
+}
+
+function formatDateTime(date){
+  return date.toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
+}
+
+function formatTime(date){
+  return date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
+}
+
+function escHtml(str){
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Close modal on overlay click
+document.getElementById('setup-modal').addEventListener('click', function(e){
+  if(e.target === this) closeSetup();
+});
+</script>
+</body>
+</html>
